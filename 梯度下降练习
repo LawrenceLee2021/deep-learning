@@ -1,3 +1,5 @@
+#不使用pytorch
+
 x_data=[1.0,2.0,3.0]
 y_data=[2.0,4.0,6.0]
 w=1.0
@@ -27,6 +29,47 @@ for epoch in range(100):
        print('epoch:',epoch,'cost:',cost_val,'w:',w)
     Epoch.append(epoch)
     Cost.append(cost_val)
+
+plt.plot(Epoch,Cost)
+plt.show()
+
+
+#使用pytorch
+import torch
+
+x_data=[1.0,2.0,3.0]
+y_data=[2.0,4.0,6.0]
+
+w=torch.Tensor([1.0])
+w.requires_grad=True
+
+def forward(x):
+    return x*w
+
+def cost(x,y):
+    cost=0
+    y_pred=forward(x)
+    cost+=(y_pred-y)**2
+    return cost
+
+def gradient(x,y):
+    grad=0
+    grad+=2*x*(x*w-y)
+    return grad
+
+Epoch=[]
+Cost=[]
+
+for epoch in range(100):
+    for x,y in zip(x_data,y_data):
+       cost_val=cost(x,y)
+       #grad_val=gradient(x,y)    此时无需再进行人为定义gradient函数，torch内部以及封装好了
+       cost_val.backward()
+       w.data-=0.01*w.grad.data
+       w.grad.data.zero_()
+       print('epoch:',epoch,'cost:',cost_val.item(),'w:',w.data.item())
+    Epoch.append(epoch)
+    Cost.append(cost_val.item())
 
 plt.plot(Epoch,Cost)
 plt.show()
