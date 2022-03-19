@@ -1,0 +1,30 @@
+import torch
+import torch.nn as nn
+from torchvision import datasets
+from torchvision import transforms
+from torch.utils.data import DataLoader
+import torch.optim as optim
+import matplotlib.pyplot as plt
+
+batch_size=60000
+transform=transforms.Compose([transforms.ToTensor()])
+train_data1=datasets.FashionMNIST(root='../dataset/FashionMNIST',
+                          train=True,
+                          download=True,
+                          transform=transform
+                                  )
+test_data1=datasets.FashionMNIST(root='../dataset/FashionMNIST',
+                                 train=False,
+                                 download=True,
+                                 transform=transform)
+train_loader1=DataLoader(train_data1,shuffle=True,batch_size=batch_size)
+test_loader1=DataLoader(test_data1,shuffle=False,batch_size=batch_size)
+
+for batch_idx,data in enumerate(train_loader1,0):
+    inputs,targets=data
+    x=inputs.view(-1,28*28)
+    mean=x.mean().item()
+    std=x.std().item()
+
+print('mean:',mean)
+print('std:',std)
