@@ -1,0 +1,161 @@
+import torch
+import torch.nn as nn
+from torchvision import datasets
+from torchvision import transforms
+from torch.utils.data import DataLoader
+import torch.optim as optim
+import matplotlib.pyplot as plt
+
+batch_size=64
+
+#MNIST
+transform=transforms.Compose([transforms.ToTensor(),      #不同的数据集均值与方差应该不同
+                              transforms.Normalize((0.1370,),(0.3081,))])
+
+
+transform1=transforms.Compose([transforms.Resize([224,224]),
+                              transforms.ToTensor(),      #不同的数据集均值与方差应该不同
+                              #transforms.Normalize((0.2860,),(0.3530,))
+                               ])
+
+transform2=transforms.Compose([transforms.Resize([224,224]),
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+                               ])    #用函数自己算一遍
+
+
+train_data=datasets.MNIST(root='../dataset/mnist',
+                          train=True,
+                          download=True,
+                          transform=transform)
+test_data=datasets.MNIST(root='../dataset/mnist',
+                          train=False,
+                          download=True,
+                          transform=transform)
+train_loader=DataLoader(train_data,shuffle=True,batch_size=batch_size)
+test_loader=DataLoader(test_data,shuffle=False,batch_size=batch_size)
+
+#FASION-MNIST
+train_data1=datasets.FashionMNIST(root='../dataset/FashionMNIST',
+                          train=True,
+                          download=True,
+                          transform=transform1
+                                  )
+test_data1=datasets.FashionMNIST(root='../dataset/FashionMNIST',
+                                 train=False,
+                                 download=True,
+                                 transform=transform1)
+train_loader1=DataLoader(train_data1,shuffle=True,batch_size=batch_size)
+test_loader1=DataLoader(test_data1,shuffle=False,batch_size=batch_size)
+
+#CIFAR10
+train_data2=datasets.CIFAR10(root='../dataset/CIFAR10',
+                             train=True,
+                             download=True,
+                             transform=transform2)
+test_data2=datasets.CIFAR10(root='../dataset/CIFAR10',
+                             train=False,
+                             download=True,
+                             transform=transform2)
+train_loader2=DataLoader(train_data2,shuffle=True,batch_size=batch_size)
+test_loader2=DataLoader(test_data2,shuffle=False,batch_size=batch_size)
+
+class Reshape(nn.Module):    #更改
+    def forward(self,x):
+        return x.view(-1,1,28,28)
+
+'''      #刘二视频的网络
+net=nn.Sequential(
+    Reshape(),nn.Conv2d(1,10,kernel_size=5),nn.MaxPool2d(2),nn.ReLU(),    #调参试一试   可能是MNIST数据集太简单了，要用更复杂的一些数据集
+    nn.Conv2d(10,20,kernel_size=5),nn.MaxPool2d(kernel_size=2),nn.ReLU(),
+    nn.Flatten(),
+    nn.Linear(320,10)
+)
+'''
+
+#AlexNet，好像只适用于ImageNet
+net=nn.Sequential(
+    nn.Conv2d(1,96,kernel_size=11,stride=4,padding=1),nn.Sigmoid(),   #RGB图像输入通道改为3即可
+    nn.MaxPool2d(kernel_size=3,stride=2),
+    nn.Conv2d(96,256,kernel_size=5,padding=2),nn.Sigmoid(),
+    nn.MaxPool2d(kernel_size=3,stride=2),
+    nn.Conv2d(256,384,kernel_size=3,padding=1),nn.Sigmoid(),
+    nn.Conv2d(384,384,kernel_size=3,padding=1),nn.Sigmoid(),
+    nn.Conv2d(384,256,kernel_size=3,padding=1),nn.Sigmoid(),
+    nn.MaxPool2d(kernel_size=3,stride=2),nn.Flatten(),
+    nn.Linear(6400,4096),nn.Sigmoid(),nn.Dropout(p=0.5),#此处即为创新之处
+    nn.Linear(4096,4096),nn.Sigmoid(),nn.Dropout(p=0.5),
+    nn.Linear(4096,10)
+)
+
+'''
+#LeNet
+net=torch.nn.Sequential(
+    #Reshape(),
+    nn.Conv2d(3,6,kernel_size=5,padding=2),nn.Sigmoid(),
+    nn.AvgPool2d(kernel_size=2,stride=2),
+    nn.Conv2d(6,16,kernel_size=5),nn.Sigmoid(),
+    nn.AvgPool2d(kernel_size=2,stride=2),nn.Flatten(),
+    nn.Linear(16*5*5,120),nn.Sigmoid(),
+    nn.Linear(120,84),nn.Sigmoid(),
+    nn.Linear(84,10)
+)
+'''
+#设备
+device=torch.device('cuda:0'if torch.cuda.is_available() else 'cpu')
+print(device)
+net.to(device)
+
+criterion=torch.nn.CrossEntropyLoss()
+optimizer=optim.SGD(net.parameters(),lr=0.1,momentum=0.5)
+
+
+Epoch=[]       #用图像画出来
+test_accuracy=[]
+
+
+def test():
+    correct=0
+    total=0
+    with torch.no_grad():
+        for data in test_loader1:
+            images,labels=data
+            images,labels=images.to(device),labels.to(device)
+
+            outputs=net(images)
+            _,predicted=torch.max(outputs.data,dim=1)
+
+            total+=labels.size(0)
+            correct+=(predicted==labels).sum().item()
+    print('test accuracy:%d %%'%(100*correct/total))
+
+    test_accuracy.append(correct/total)
+
+
+for epoch in range(20):
+    running_loss=0.0
+    for batch_idx,data in enumerate(train_loader1,0):
+        inputs,target=data
+        inputs,target=inputs.to(device),target.to(device)
+        optimizer.zero_grad()
+
+        outputs=net(inputs)
+        loss=criterion(outputs,target)
+
+        loss.backward()
+
+        optimizer.step()
+
+        running_loss+=loss.item()
+        if batch_idx%300==299:     #每三百批输出一次
+            print('[%d,%5d] loss:%.3f'%(epoch+1,batch_idx+1,running_loss/300))
+            running_loss=0.0
+
+    Epoch.append(epoch)
+    test()
+
+
+plt.plot(Epoch,test_accuracy)
+plt.xlabel('Epoch')
+plt.ylabel('Test Accuracy')
+plt.show()
