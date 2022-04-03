@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from d2l import torch as d2l
+from d2l import torch as d2l   #d2l这个包是他们团队自己写的
 
 net=nn.Sequential(
     nn.Conv2d(1,96,kernel_size=11,stride=4,padding=1),nn.ReLU(),
